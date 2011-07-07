@@ -44,7 +44,7 @@
  */
 #if defined (__AVR_ATxmega192D3__)|(__AVR_ATxmega192A3__)
 	#define AVRPROGRAMMEMORYMORETHAN128K 1
-#elif defined (__AVR_ATxmega128D3__)|(__AVR_ATxmega128A3__)
+#elif defined (__AVR_ATxmega128D3__)|(__AVR_ATxmega128A3__)|(__AVR_ATxmega128A1__)
 	#define AVRPROGRAMMEMORYMORETHAN128K 0
 #else
 	#error "specify amount of memory for you device"
