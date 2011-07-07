@@ -38,16 +38,17 @@
 #include "pmic_driver.h"
 /* File headers. */
 
-#include "led.h"
-#include "ledGroup.h"
-#include "usart_task.h"
+//#include "led.h"
+//#include "ledGroup.h"
+//#include "usart_task.h"
+#include "bled_task.h"
 // This is global, because used in hooks
-LedGroup * ledRGB;
+//LedGroup * ledRGB;
 /* BADISR_vect is called when interrupt has occurred, but there is no ISR handler for it defined */
-ISR (BADISR_vect){
+/*ISR (BADISR_vect){
 	//stop execution and report error
 	while(true) ledGroupSet(ledRGB, ORANGE);
-}
+}*/
 int main( void )
 {
 	/*  Enable internal 32 MHz ring oscillator and wait until it's
@@ -57,6 +58,19 @@ int main( void )
 	CLKSYS_Prescalers_Config( CLK_PSADIV_1_gc, CLK_PSBCDIV_1_1_gc );
 	do {} while ( CLKSYS_IsReady( OSC_RC32MRDY_bm ) == 0 );
 	CLKSYS_Main_ClockSource_Select( CLK_SCLKSEL_RC32M_gc );
+
+	// Setup output for the LEDs
+	PORT_SetDirection( &PORTE, 0xff );
+	PORT_SetPins( &PORTE, 0xff ); // /!\ set pin => switch *off* light on the Atmel A1-Xplained board
+//	while(1)
+//	{
+//		PORT_ClearPins( &PORTE, 0x01);
+//		mdelay(100);
+//		PORT_SetPins( &PORTE, 0x01);
+//		mdelay(100);
+//	}
+
+
 	/* Do all configuration and create all tasks and queues before scheduler is started.
 	 * It is possible to put initialization of peripherals like displays into task functions
 	 * (which will be executed after scheduler has started) if fast startup is needed.
@@ -64,23 +78,25 @@ int main( void )
 	 */
 
 	//---------Use USART on PORTC----------------------------
-	UsartBuffer * usartFTDI = usartBufferInitialize(&USARTC0, BAUD9600, 128);
+//	UsartBuffer * usartFTDI = usartBufferInitialize(&USARTC0, BAUD9600, 128);
 	// Report itself
-	usartBufferPutString(usartFTDI, "XMEGA ready",10);
+//	usartBufferPutString(usartFTDI, "XMEGA ready",10);
 	//---------Start LED task for testing purposes-----------
-	ledRGB = ledGroupInitialize(3);
-	ledGroupAdd(ledRGB, &PORTA, 0x20,1 );//R
-	ledGroupAdd(ledRGB, &PORTA, 0x10,1 );//G
-	ledGroupAdd(ledRGB, &PORTA, 0x08,1 );//B
+//	ledRGB = ledGroupInitialize(3);
+//	ledGroupAdd(ledRGB, &PORTA, 0x20,1 );//R
+//	ledGroupAdd(ledRGB, &PORTA, 0x10,1 );//G
+//	ledGroupAdd(ledRGB, &PORTA, 0x08,1 );//B
 
-	LedGroupEventQueue * ledRGBEventQueue = startLedQueueProcessorTask(ledRGB,configLOW_PRIORITY, NULL);
-	ledGroupEventQueuePut(ledRGBEventQueue,BLUE,700);
-	ledGroupEventQueuePut(ledRGBEventQueue,SKY,700);
-	ledGroupEventQueuePut(ledRGBEventQueue,WHITE,700);
-	startBlinkingLedTask(ledRGBEventQueue,configLOW_PRIORITY, NULL);
+//	LedGroupEventQueue * ledRGBEventQueue = startLedQueueProcessorTask(ledRGB,configLOW_PRIORITY, NULL);
+//	ledGroupEventQueuePut(ledRGBEventQueue,BLUE,700);
+//	ledGroupEventQueuePut(ledRGBEventQueue,SKY,700);
+//	ledGroupEventQueuePut(ledRGBEventQueue,WHITE,700);
+//	startBlinkingLedTask(ledRGBEventQueue,configLOW_PRIORITY, NULL);
+	startbledTask(configNORMAL_PRIORITY);
+
 
 	// Start USART task
-	startUsartTask(usartFTDI, ledRGBEventQueue, 128, configNORMAL_PRIORITY, NULL);
+//	startUsartTask(usartFTDI, ledRGBEventQueue, 128, configNORMAL_PRIORITY, NULL);
 
 	// Enable PMIC interrupt level low
 	PMIC_EnableLowLevel();
