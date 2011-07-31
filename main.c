@@ -33,9 +33,11 @@
 /* Scheduler include files. */
 #include "FreeRTOS.h"
 #include "task.h"
+#include "timers.h"
 /* Atmel drivers */
 #include "clksys_driver.h"
 #include "pmic_driver.h"
+#include "wdt_driver.h"
 /* File headers. */
 
 #include "led.h"
@@ -48,6 +50,13 @@ ISR (BADISR_vect){
 	//stop execution and report error
 	while(true) ledGroupSet(ledRGB, ORANGE);
 }
+
+// Define a callback function that will be reset the WDT
+void watchdogTimerCallback( xTimerHandle xTimer )
+{
+	WDT_Reset();
+}
+
 int main( void )
 {
 	/*  Enable internal 32 MHz ring oscillator and wait until it's
@@ -57,33 +66,34 @@ int main( void )
 	CLKSYS_Prescalers_Config( CLK_PSADIV_1_gc, CLK_PSBCDIV_1_1_gc );
 	do {} while ( CLKSYS_IsReady( OSC_RC32MRDY_bm ) == 0 );
 	CLKSYS_Main_ClockSource_Select( CLK_SCLKSEL_RC32M_gc );
+
+	//Enable watchdog timer, which will be reset by timer
+	WDT_EnableAndSetTimeout( WDT_PER_1KCLK_gc );
 	/* Do all configuration and create all tasks and queues before scheduler is started.
 	 * It is possible to put initialization of peripherals like displays into task functions
 	 * (which will be executed after scheduler has started) if fast startup is needed.
 	 * Interrupts are not enabled until the call of vTaskStartScheduler();
 	 */
+	// Enable the Round-Robin Scheduling scheme.Round-Robin scheme ensures that no low-level
+	// interrupts are “starved”, as the priority changes continuously
+	PMIC_EnableRoundRobin();
 
+	//Create and start the timer, which will reset Watch Dog Timer
+	xTimerStart(xTimerCreate((signed char*)"WDT",500, pdTRUE, 0, watchdogTimerCallback), 0);
 	//---------Use USART on PORTC----------------------------
-	UsartBuffer * usartFTDI = usartBufferInitialize(&USARTC0, BAUD9600, 128);
-	// Report itself
-	usartBufferPutString(usartFTDI, "XMEGA ready",10);
+	UsartBuffer * usartFTDI = usartBufferInitialize(&USARTE0, BAUD9600, 128);
 	//---------Start LED task for testing purposes-----------
 	ledRGB = ledGroupInitialize(3);
-	ledGroupAdd(ledRGB, &PORTA, 0x20,1 );//R
-	ledGroupAdd(ledRGB, &PORTA, 0x10,1 );//G
-	ledGroupAdd(ledRGB, &PORTA, 0x08,1 );//B
-
+	ledGroupAdd(ledRGB, &PORTF, 0x04,1 );//R
+	ledGroupAdd(ledRGB, &PORTF, 0x08,1 );//G
+	ledGroupAdd(ledRGB, &PORTF, 0x02,1 );//B
+	ledGroupSet(ledRGB, BLUE);
 	LedGroupEventQueue * ledRGBEventQueue = startLedQueueProcessorTask(ledRGB,configLOW_PRIORITY, NULL);
-	ledGroupEventQueuePut(ledRGBEventQueue,BLUE,700);
-	ledGroupEventQueuePut(ledRGBEventQueue,SKY,700);
-	ledGroupEventQueuePut(ledRGBEventQueue,WHITE,700);
 	startBlinkingLedTask(ledRGBEventQueue,configLOW_PRIORITY, NULL);
 
 	// Start USART task
 	startUsartTask(usartFTDI, ledRGBEventQueue, 128, configNORMAL_PRIORITY, NULL);
 
-	// Enable PMIC interrupt level low
-	PMIC_EnableLowLevel();
 	/* Start scheduler. Creates idle task and returns if failed to create it.
 	 * vTaskStartScheduler never returns during normal operation. If it has returned, probably there is
 	 * not enough space in heap to allocate memory for the idle task, which means that all heap space is
@@ -91,7 +101,7 @@ int main( void )
 	 * XMEGA port uses heap_1.c which doesn't support memory free. It is unlikely that XMEGA port will need to
 	 * dynamically create tasks or queues. To ensure stable work, create ALL tasks and ALL queues before
 	 * vTaskStartScheduler call. In this case we can be sure that heap size is enough.
-	 * Interrupts would be enabled by calling sei();*/
+	 * Interrupts would be enabled by calling PMIC_EnableLowLevel();*/
 	vTaskStartScheduler();
 
 	/* stop execution and report error */
@@ -121,10 +131,4 @@ void vApplicationStackOverflowHook( xTaskHandle *pxTask, signed portCHAR *pcTask
 {
 	/* stop execution and report error */
 	while(true) ledGroupSet(ledRGB, RED);
-}
-void vApplicationTickHook( void );
-/* This function is called during the tick interrupt. configUSE_TICK_HOOK should be defined as 1.*/
-void vApplicationTickHook( void )
-{
-/* Tick hook could be used to implement timer functionality*/
 }
