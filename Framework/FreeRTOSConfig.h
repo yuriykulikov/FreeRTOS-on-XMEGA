@@ -1,4 +1,3 @@
-
 #ifndef FREERTOS_CONFIG_H
 #define FREERTOS_CONFIG_H
 
@@ -29,12 +28,14 @@
 #define configTICK_RATE_HZ			( ( portTickType ) 1000 )
 #define configMAX_PRIORITIES		( ( unsigned portBASE_TYPE ) 4 )//4
 #define configMINIMAL_STACK_SIZE	( ( unsigned short ) 150 )//85
-#define configTOTAL_HEAP_SIZE		( (size_t ) ( 3000 ) )//1500
+#define configTOTAL_HEAP_SIZE		( (size_t ) ( 3500 ) )//1500
 #define configMAX_TASK_NAME_LEN		( 8 )
 #define configUSE_TRACE_FACILITY	0
 #define configUSE_16_BIT_TICKS		1
 #define configIDLE_SHOULD_YIELD		1
 #define configQUEUE_REGISTRY_SIZE	0
+
+#define configUSE_MUTEXES			1
 
 // timers.c
 #define configUSE_TIMERS				1
@@ -72,6 +73,7 @@
 #define portGET_RUN_TIME_COUNTER_VALUE			0//0
 #define INCLUDE_uxTaskGetStackHighWaterMark		1
 #define INCLUDE_xTaskGetCurrentTaskHandle 		1
+#define configUSE_MALLOC_FAILED_HOOK			1//0
 
 /* Co-routine definitions. */
 #define configUSE_CO_ROUTINES 		0 //1
