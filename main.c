@@ -34,25 +34,29 @@
 #include "FreeRTOS.h"
 #include "task.h"
 #include "timers.h"
-/* Atmel drivers */
+/* drivers */
 #include "clksys_driver.h"
 #include "pmic_driver.h"
 #include "wdt_driver.h"
-/* File headers. */
-#include "led.h"
-#include "ledGroup.h"
+#include "leds.h"
 #include "spi_driver.h"
-#include "LooperTask.h"
+/* File headers. */
+#include "handler.h"
+#include "Looper.h"
+#include "strings.h"
+/* Tasks */
+#include "ExampleHandler.h"
+#include "BlinkingLedTask.h"
+#include "LedEventProcessorTask.h"
 #include "CommandInterpreterTask.h"
 #include "SpiSlaveTask.h"
-#include "handler.h"
-#include "strings.h"
+
 /** This is global, because used in hooks */
 LedGroup * ledRGB;
 /** BADISR_vect is called when interrupt has occurred, but there is no ISR handler for it defined */
 ISR (BADISR_vect) {
 	//stop execution and report error
-	while(true) ledGroupSet(ledRGB, ORANGE);
+	while(true) Leds_set(ledRGB, ORANGE);
 }
 
 /**
@@ -103,34 +107,40 @@ int main( void ) {
 	SpiDevice * spiMasterCdefault = SpiMaster_initDevice(spiMasterC, &PORTC, SPI_SS_bm);
 
 	//---------Start LED task for testing purposes-----------
-	ledRGB = ledGroupInitialize(3);
-	ledGroupAdd(ledRGB, &PORTF, 0x04,1 );//R
-	ledGroupAdd(ledRGB, &PORTF, 0x08,1 );//G
-	ledGroupAdd(ledRGB, &PORTF, 0x02,1 );//B
-	ledGroupSet(ledRGB, BLUE);
-	LedGroupEventQueue * ledRGBEventQueue = startLedQueueProcessorTask(ledRGB,configLOW_PRIORITY, NULL);
+	ledRGB = Leds_init(3);
+	Leds_new(ledRGB, &PORTF, 0x04,1 );//R
+	Leds_new(ledRGB, &PORTF, 0x08,1 );//G
+	Leds_new(ledRGB, &PORTF, 0x02,1 );//B
+	Leds_set(ledRGB, BLUE);
+	LedsEventQueue * ledRGBEventQueue = LedsEvent_startLedsTask(ledRGB,configLOW_PRIORITY, NULL);
 
-	LedGroup *ledString = ledGroupInitialize(7);
-	ledGroupAdd(ledString, &PORTA, 0x02, 0);
-	ledGroupAdd(ledString, &PORTA, 0x04, 0);
-	ledGroupAdd(ledString, &PORTA, 0x08, 0);
-	ledGroupAdd(ledString, &PORTA, 0x10, 0);
-	ledGroupAdd(ledString, &PORTA, 0x20, 0);
-	ledGroupAdd(ledString, &PORTA, 0x40, 0);
-	ledGroupAdd(ledString, &PORTA, 0x80, 0);
-	LedGroupEventQueue *ledStringQueue = startLedQueueProcessorTask(ledString, configLOW_PRIORITY, NULL);
+	LedGroup *ledString = Leds_init(7);
+	Leds_new(ledString, &PORTA, 0x02, 0);
+	Leds_new(ledString, &PORTA, 0x04, 0);
+	Leds_new(ledString, &PORTA, 0x08, 0);
+	Leds_new(ledString, &PORTA, 0x10, 0);
+	Leds_new(ledString, &PORTA, 0x20, 0);
+	Leds_new(ledString, &PORTA, 0x40, 0);
+	Leds_new(ledString, &PORTA, 0x80, 0);
+	LedsEventQueue *ledStringQueue = LedsEvent_startLedsTask(ledString, configLOW_PRIORITY, NULL);
 
-	Handler *handler = Handler_create(10);
-	// Register commands for the interpreter
+	// ***** Start main Looper
+	Looper *looper = Looper_start(10, "LPR", 350, configNORMAL_PRIORITY, NULL);
+	ExampleHandlerContext *exampleContext = pvPortMalloc(sizeof(ExampleHandlerContext));
+	exampleContext->spiMaster = spiMasterCdefault;
+	exampleContext->usart = usartFTDI;
+	exampleContext->led = ledStringQueue;
+	Handler *exampleHandler = Handler_create(looper, ExampleHandler_handleMessage, exampleContext);
+
+	// ****** Register commands for the interpreter
 	CommandLineInterpreter *interpreter = CommandLineInterpreter_create();
-	CommandLineInterpreter_register(interpreter, Strings_SpiExampleCmd, Strings_SpiExampleCmdDesc, handler, EVENT_RUN_SPI_TEST);
-	CommandLineInterpreter_register(interpreter, Strings_BlinkCmd, Strings_BlinkCmdDesc, handler, EVENT_BLINK);
-
-	startBlinkingLedTask(ledRGBEventQueue,configLOW_PRIORITY, NULL);
-	// Start USART task
 	startCommandInterpreterTask(interpreter, usartFTDI, 64, configNORMAL_PRIORITY, NULL);
+	CommandLineInterpreter_register(interpreter, Strings_SpiExampleCmd, Strings_SpiExampleCmdDesc, exampleHandler, EVENT_RUN_SPI_TEST);
+	CommandLineInterpreter_register(interpreter, Strings_BlinkCmd, Strings_BlinkCmdDesc, exampleHandler, EVENT_BLINK);
+
+	// ****** Start stand-alone tasks
+	startBlinkingLedTask(ledRGBEventQueue,configLOW_PRIORITY, NULL);
 	startSpiSlaveTask(spiSlaveD, usartFTDI, configLOW_PRIORITY, NULL);
-	startLooperTask(handler, interpreter, spiMasterCdefault, usartFTDI, ledStringQueue, configLOW_PRIORITY, NULL);
 
 	/* Start scheduler. Creates idle task and returns if failed to create it.
 	 * vTaskStartScheduler never returns during normal operation. It is unlikely that XMEGA port will need to
@@ -140,7 +150,7 @@ int main( void ) {
 	vTaskStartScheduler();
 
 	/* Should never get here, stop execution and report error */
-	while(true) ledGroupSet(ledRGB, PINK);
+	while(true) Leds_set(ledRGB, PINK);
 	return 0;
 }
 
@@ -162,7 +172,7 @@ void vApplicationIdleHook( void ) {
  * configCHECK_FOR_STACK_OVERFLOW should be defined as 1 to use StackOverflowHook.
  */
 void vApplicationStackOverflowHook( xTaskHandle *pxTask, signed portCHAR *pcTaskName ) {
-	while(true) ledGroupSet(ledRGB, RED);
+	while(true) Leds_set(ledRGB, RED);
 }
 
 /**
@@ -172,5 +182,5 @@ void vApplicationStackOverflowHook( xTaskHandle *pxTask, signed portCHAR *pcTask
  * configUSE_MALLOC_FAILED_HOOK should be defined as 1 to use vApplicationMallocFailedHook()
  */
 void vApplicationMallocFailedHook() {
-	while(true) ledGroupSet(ledRGB, PINK);
+	while(true) Leds_set(ledRGB, PINK);
 }
