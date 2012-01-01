@@ -18,6 +18,7 @@
  *****************************************************************************/
 #ifndef HANDLER_H_
 #define HANDLER_H_
+
 /* Scheduler include files. */
 #include "FreeRTOS.h"
 #include "task.h"
@@ -26,29 +27,21 @@
 #include "Looper.h"
 
 typedef struct MESSAGE Message;
-typedef struct HANDLER Handler;
-/**
- * The prototype to which handleMessage functions used to process messages must comply.
- * @param msg - message to handle
- * @param *context - context of current Handler. Store variables there
- * @param *handler - pointer to the handler, to modify or look into the queue
- */
-typedef void (*HANDLE_MESSAGE_CALLBACK)(Message msg, void *context, Handler *handler);
 
-/** Struct represents handler */
-struct HANDLER{
-	/** Queue on which handler posts messages */
-	xQueueHandle messageQueue;
-	/** Function which handles messages*/
-	HANDLE_MESSAGE_CALLBACK handleMessage;
-	/** Execution context of current handler, handleMessage should cast it to something */
-	void *context;
+class Handler {
+private:
+    /** Queue on which handler posts messages */
+    xQueueHandle messageQueue;
+public:
+    Handler (Looper *looper);
+    virtual void handleMessage(Message msg) =0;
+    bool sendMessage(Message msg);
+    bool sendMessage(char what);
+    bool sendMessage(char what, char arg1, char arg2);
+    bool sendMessage(char what, char arg1, char arg2, void *ptr);
 };
 
-/**
- * This structure represents a message
- */
-struct MESSAGE{
+struct MESSAGE {
 	/** Handler responsible for handling this message */
 	Handler *handler;
 	/** What message is about */
@@ -61,12 +54,5 @@ struct MESSAGE{
 	 * according to the message.what */
 	void *ptr;
 };
-
-/* Prototyping of functions. Documentation is found in source file. */
-
-Handler * Handler_create (Looper *looper, HANDLE_MESSAGE_CALLBACK handleMessage, void *context);
-void Handler_sendEmptyMessage(Handler *handler, char what);
-void Handler_sendMessage(Handler *handler, char what, char arg1, char arg2);
-void Handler_sendMessageWithPtr(Handler *handler, char what, char arg1, char arg2, void *ptr);
 
 #endif /* HANDLER_H_ */

@@ -51,40 +51,32 @@
     licensing and training services.
 */
 
-#include "handler.h"
-#include "usart_driver_RTOS.h"
 #ifndef COMMAND_INTERPRETER_H
 #define COMMAND_INTERPRETER_H
-/** CommandList Entry */
-typedef struct xCOMMAND_INPUT_LIST {
-	/* The command that causes pxCommandInterpreter to be executed.  For example "help".  Must be all lower case. */
-	char *pcCommand;
-	/* String that describes how to use the command.  Should start with the command itself, and end with "\r\n".
-	 * For example "help: Returns a list of all the commands\r\n". */
-	char *pcHelpString;
-	Handler *handler;
-	char what;
-	struct xCOMMAND_INPUT_LIST *pxNext;
-} xCommandLineInputListItem;
 
-typedef struct {
-	xCommandLineInputListItem *list;
-} CommandLineInterpreter;
+#include "Serial.h"
+#include "Handler.h"
 
-CommandLineInterpreter * CommandLineInterpreter_create();
-void CommandLineInterpreter_register(CommandLineInterpreter *interpreter, char *pgm_Cmd, char *pgm_CmdDesc, Handler *handler, char what);
-void CommandLineInterpreter_process(CommandLineInterpreter *interpreter, char *pcCommandInput, Usart *usart);
+typedef struct InputListItem {
+//public:
+    /* The command that causes pxCommandInterpreter to be executed.  For example "help".  Must be all lower case. */
+    char *pcCommand;
+    /* String that describes how to use the command.  Should start with the command itself, and end with "\r\n".
+     * For example "help: Returns a list of all the commands\r\n". */
+    char *pcHelpString;
+    Handler *handler;
+    char what;
+    InputListItem *pxNextEntry;
+} InputListItem;
+
+class CommandInterpreter {
+public:
+    CommandInterpreter();
+    void registerCommand(char *pgm_Cmd, char *pgm_CmdDesc, Handler *handler, char what);
+    void processCommand(char *pcCommandInput, Serial *serial);
+private:
+    InputListItem *list;
+};
+
 #endif /* COMMAND_INTERPRETER_H */
-
-
-
-
-
-
-
-
-
-
-
-
 

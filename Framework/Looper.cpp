@@ -4,28 +4,32 @@
  *  Created on: Nov 20, 2011
  *      Author: Yuriy
  */
+/* Scheduler include files. */
+#include "FreeRTOS.h"
+#include "task.h"
+#include "queue.h"
 
-#include "handler.h"
+#include "Handler.h"
 #include "Looper.h"
+#include "ExampleHandler.h"
+#include "Thread.h"
 
-void LooperTask( void *pvParameters )
-{
-	//do a cast t local variable, because eclipse does not provide suggestions otherwise
-	Looper *looper = (Looper*)pvParameters;
-	//Infinite loop
-	for (;;) {
-		Message msg;
-		if (xQueueReceive(looper->messageQueue, &msg, portMAX_DELAY)) {
-			Handler *handler = msg.handler;
-			// Call handleMessage from the handler
-			handler->handleMessage(msg, handler->context, handler);
-		}
-	}
+Looper::Looper(uint8_t messageQueueSize, const char *name, unsigned short stackDepth, char priority)
+:Thread(name, stackDepth, priority) {
+    messageQueue = xQueueCreate(messageQueueSize, sizeof(Message));
 }
 
-Looper * Looper_start(unsigned char messageQueueSize, char *name, unsigned short stackDepth, char priority, xTaskHandle taskHandle) {
-	Looper *looper = (Looper*) pvPortMalloc(sizeof(Looper));
-	looper->messageQueue = xQueueCreate(messageQueueSize, sizeof(Message));
-	xTaskCreate(LooperTask, (const signed char * const)name, stackDepth, looper, priority, NULL );
-	return looper;
+void Looper::run() {
+    Message msg;
+    //Infinite loop
+    for (;;) {
+        if (xQueueReceive(messageQueue, &msg, portMAX_DELAY)) {
+            // Call handleMessage from the handler
+            msg.handler->handleMessage(msg);
+        }
+    }
+}
+
+xQueueHandle Looper::getMessageQueue(){
+    return messageQueue;
 }

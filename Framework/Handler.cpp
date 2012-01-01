@@ -17,44 +17,34 @@
  *
  *****************************************************************************/
 
-
 /* Compiler definitions include file. */
+extern "C" {
 #include "avr_compiler.h"
-
+#include <string.h>
+}
 /* Scheduler include files. */
 #include "FreeRTOS.h"
 #include "task.h"
 #include "queue.h"
 
 /* Task header file */
-#include "handler.h"
-#include <string.h>
+#include "Handler.h"
+#include "Looper.h"
+
 /**
- * Post empty message
- * @param handler
- * @param what
+ * Creates a handler, which has to be bind to the looper task
+ * @param looper
+ * @param handleMessage
+ * @param context
  */
-void Handler_sendEmptyMessage(Handler *handler, char what) {
-    Message msg;
-    msg.handler = handler;
-    msg.what = what;
-    xQueueSend(handler->messageQueue, &msg, 2);
+Handler::Handler(Looper *looper) {
+    messageQueue = looper->getMessageQueue();
 }
-/**
- * Post message with arguments
- * @param handler
- * @param what
- * @param arg1
- * @param arg2
- */
-void Handler_sendMessage(Handler *handler, char what, char arg1, char arg2) {
-    Message msg;
-    msg.handler = handler;
-    msg.what = what;
-    msg.arg1 = arg1;
-    msg.arg2 = arg2;
-    xQueueSend(handler->messageQueue, &msg, 2);
+
+bool Handler::sendMessage(Message msg) {
+    return xQueueSend(messageQueue, &msg, 0);
 }
+
 /**
  * Post message with arguments and a pointer to allocated data
  * @param handler
@@ -63,27 +53,33 @@ void Handler_sendMessage(Handler *handler, char what, char arg1, char arg2) {
  * @param arg2
  * @param ptr
  */
-void Handler_sendMessageWithPtr(Handler *handler, char what, char arg1, char arg2, void *ptr) {
+bool Handler::sendMessage(char what, char arg1, char arg2, void *ptr) {
     Message msg;
-    msg.handler = handler;
+    msg.handler = this;
     msg.what = what;
     msg.arg1 = arg1;
     msg.arg2 = arg2;
     msg.ptr = ptr;
-    xQueueSend(handler->messageQueue, &msg, 2);
+    return xQueueSend(messageQueue, &msg, 0);
 }
 
 /**
- * Creates a handler, which has to be bind to the looper task
- * @param looper
- * @param handleMessage
- * @param context
+ * Post empty message
+ * @param handler
+ * @param what
  */
-Handler * Handler_create (Looper *looper, HANDLE_MESSAGE_CALLBACK handleMessage, void *context) {
-	// Pack input parameters into the structure and pass them to the task
-	Handler *handler = pvPortMalloc(sizeof(Handler));
-	handler->messageQueue =  looper->messageQueue;
-	handler->handleMessage = handleMessage;
-	handler->context = context;
-	return handler;
+bool Handler::sendMessage(char what) {
+    return sendMessage(what, NULL, NULL, NULL);
 }
+
+/**
+ * Post message with arguments
+ * @param handler
+ * @param what
+ * @param arg1
+ * @param arg2
+ */
+bool Handler::sendMessage(char what, char arg1, char arg2) {
+    return sendMessage(what, arg1, arg2, NULL);
+}
+

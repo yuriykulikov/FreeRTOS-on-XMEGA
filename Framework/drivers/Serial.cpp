@@ -57,26 +57,26 @@
 #include "FreeRTOS.h"
 #include "task.h"
 #include "queue.h"
+extern "C" {
 #include "port_driver.h"
 #include "usart.h"
-#include "usart_driver_RTOS.h"
 #include <avr/pgmspace.h>
+}
+#include "Serial.h"
+
 //Structures, representing uart and its buffer. for internal use.
 //Memory allocated dynamically
-Usart * usartC;
-Usart * usartD;
-Usart * usartE;
+Serial * usartC;
+Serial * usartD;
+Serial * usartE;
 
-signed char USART_RXComplete(Usart *);
-signed char USART_DataRegEmpty(Usart *);
+ISR(USARTC0_RXC_vect){ if( usartC->USART_RXComplete() ) taskYIELD(); }
+ISR(USARTD0_RXC_vect){ if( usartD->USART_RXComplete() ) taskYIELD(); }
+ISR(USARTE0_RXC_vect){ if( usartE->USART_RXComplete() ) taskYIELD(); }
 
-ISR(USARTC0_RXC_vect){ if( USART_RXComplete(usartC) ) taskYIELD(); }
-ISR(USARTD0_RXC_vect){ if( USART_RXComplete(usartD) ) taskYIELD(); }
-ISR(USARTE0_RXC_vect){ if( USART_RXComplete(usartE) ) taskYIELD(); }
-
-ISR(USARTC0_DRE_vect){USART_DataRegEmpty(usartC);}
-ISR(USARTD0_DRE_vect){USART_DataRegEmpty(usartD);}
-ISR(USARTE0_DRE_vect){USART_DataRegEmpty(usartE);}
+ISR(USARTC0_DRE_vect){usartC->USART_DataRegEmpty();}
+ISR(USARTD0_DRE_vect){usartD->USART_DataRegEmpty();}
+ISR(USARTE0_DRE_vect){usartE->USART_DataRegEmpty();}
 
 /**
  * @brief Initializes buffer and selects what USART module to use.
@@ -90,78 +90,64 @@ ISR(USARTE0_DRE_vect){USART_DataRegEmpty(usartE);}
  * @param ticksToWait - Default wait time
  * @return pointer to the Usart software module
  */
-Usart * Usart_initialize(USART_t *module, Baudrate baudrate, char bufferSize, int ticksToWait) {
-	//We use only low level interrupts, but leave local variable in case we change the mind
-	USART_DREINTLVL_t dreIntLevel = USART_DREINTLVL_LO_gc;
-	PORT_t * port;
-	Usart * usart;
-	//Allocate memory for usart structure and store the pointer
-	usart = ( Usart * ) pvPortMalloc( sizeof( Usart ) );
-	//switch by pointer to usart structure, which will be used. Usually it is not a good idea to
-	//switch by pointer, but in our case pointers are defined by hardware
-	switch ((int)module) {
-		case (int)&USARTC0:
-			//copy pointer pUsartBuffer to global pUsartBufferC, which is use to handle interrupts
-			usartC = usart;
-			//Since usart is on the port C, we will need to use PORTC
-			port = &PORTC;
-			break;
-		case (int)&USARTD0:
-			//copy pointer pUsartBuffer to global pUsartBufferD, which is use to handle interrupts
-			usartD = usart;
-			//Since usart is on the port D, we will need to use PORTD
-			port = &PORTD;
-			break;
-		case (int)&USARTE0:
-			//copy pointer pUsartBuffer to global pUsartBufferD, which is use to handle interrupts
-			usartE = usart;
-			//Since usart is on the port E, we will need to use PORTE
-			port = &PORTE;
-			break;
-		default:
-			//use default, TODO: report error here with LED
-			break;
-	}
+Serial::Serial(USART_t *module, Baudrate baudrate, uint8_t bufferSize, int ticksToWait) {
+    PORT_t * port;
+    //switch by pointer to usart structure, which will be used. Usually it is not a good idea to
+    //switch by pointer, but in our case pointers are defined by hardware
+    if (module == &USARTC0) {
+        //copy pointer pUsartBuffer to global pUsartBufferC, which is use to handle interrupts
+        usartC = this;
+        //Since usart is on the port C, we will need to use PORTC
+        port = &PORTC;
+    } else if (module == &USARTD0) {
+        //copy pointer pUsartBuffer to global pUsartBufferD, which is use to handle interrupts
+        usartD = this;
+        //Since usart is on the port D, we will need to use PORTD
+        port = &PORTD;
+    } else if (module == &USARTE0) {
+        //copy pointer pUsartBuffer to global pUsartBufferD, which is use to handle interrupts
+        usartE = this;
+        //Since usart is on the port E, we will need to use PORTE
+        port = &PORTE;
+    }
 
-	/* (TX0) as output. */
-	port->DIRSET = PIN3_bm;
-	/* (RX0) as input. */
-	port->DIRCLR = PIN2_bm;
-	//totempole and pullup
-	PORT_ConfigurePins( port,PIN3_bm,false,false,PORT_OPC_PULLUP_gc,PORT_ISC_BOTHEDGES_gc );
-	/* Initialize buffers. Create a queue (allocate memory) and store queue handle in Usart
-	 * On XMEGA port create all queues before vStartTaskScheduler() to ensure that heap size is enough */
-	/* Store pointer to USART module */
-	usart->module = module;
-	/*Store DRE level so we will know which level to enable when we put data and want it to be sent. */
-	usart->dreIntLevel = dreIntLevel;
-	// store default ticksToWait value - used in Dflt functions
-	usart->ticksToWait = ticksToWait;
-	/* @brief  Receive buffer size: 2,4,8,16,32,64,128 bytes. */
-	usart->RXqueue = xQueueCreate(bufferSize,sizeof(char));
-	usart->TXqueue = xQueueCreate(bufferSize,sizeof(char));
+    /* (TX0) as output. */
+    port->DIRSET = PIN3_bm;
+    /* (RX0) as input. */
+    port->DIRCLR = PIN2_bm;
+    //totempole and pullup
+    PORT_ConfigurePins( port,PIN3_bm,false,false,PORT_OPC_PULLUP_gc,PORT_ISC_BOTHEDGES_gc );
+    /* Initialize buffers. Create a queue (allocate memory) and store queue handle in Usart
+     * On XMEGA port create all queues before vStartTaskScheduler() to ensure that heap size is enough */
+    /* Store pointer to USART module */
+    this->module = module;
+    /*Store DRE level so we will know which level to enable when we put data and want it to be sent. */
+    this->dreIntLevel = USART_DREINTLVL_LO_gc;
+    // store default ticksToWait value - used in Dflt functions
+    this->ticksToWait = ticksToWait;
+    /* @brief  Receive buffer size: 2,4,8,16,32,64,128 bytes. */
+    RXqueue = xQueueCreate(bufferSize,sizeof(char));
+    TXqueue = xQueueCreate(bufferSize,sizeof(char));
 
-	/* USARTD0, 8 Data bits, No Parity, 1 Stop bit. */
-	USART_Format_Set(usart->module, USART_CHSIZE_8BIT_gc, USART_PMODE_DISABLED_gc, false);
-	/* Enable RXC interrupt. */
-	USART_RxdInterruptLevel_Set(usart->module, USART_RXCINTLVL_LO_gc);
+    /* USARTD0, 8 Data bits, No Parity, 1 Stop bit. */
+    USART_Format_Set(module, USART_CHSIZE_8BIT_gc, USART_PMODE_DISABLED_gc, false);
+    /* Enable RXC interrupt. */
+    USART_RxdInterruptLevel_Set(module, USART_RXCINTLVL_LO_gc);
 
-	//http://prototalk.net/forums/showthread.php?t=188
-	switch (baudrate) {
-		case BAUD9600:
-			USART_Baudrate_Set(usart->module, 3317 , -4);
-			break;
-		default:
-			//9600
-			USART_Baudrate_Set(usart->module, 3317 , -4);
-			break;
-	}
+    //http://prototalk.net/forums/showthread.php?t=188
+    switch (baudrate) {
+    case BAUD9600:
+        USART_Baudrate_Set(module, 3317 , -4);
+        break;
+    default:
+        //9600
+        USART_Baudrate_Set(module, 3317 , -4);
+        break;
+    }
 
-	/* Enable both RX and TX. */
-	USART_Rx_Enable(usart->module);
-	USART_Tx_Enable(usart->module);
-	//return the software module structure, to be used for reading and writing
-	return usart;
+    /* Enable both RX and TX. */
+    USART_Rx_Enable(module);
+    USART_Tx_Enable(module);
 }
 
 /** @brief Put data (5-8 bit character).
@@ -173,20 +159,19 @@ Usart * Usart_initialize(USART_t *module, Baudrate baudrate, char bufferSize, in
  * @param ticksToWait Amount of RTOS ticks (1 ms default) to wait if there is space in queue
  * @return pdTRUE is success, pdFALSE if queue was full and ticksToWait elapsed
  */
-int8_t Usart_putByte(Usart * usart, uint8_t data, int ticksToWait )
-{
-	uint8_t tempCTRLA;
-	signed char queueSendResult = xQueueSendToBack(usart->TXqueue, &data, ticksToWait);
-	/* If we successfully loaded byte to queue */
-	if (queueSendResult == pdPASS) {
-		/* Enable DRE interrupt. */
-		tempCTRLA = usart->module->CTRLA;
-		tempCTRLA = (tempCTRLA & ~USART_DREINTLVL_gm) | usart->dreIntLevel;
-		usart->module->CTRLA = tempCTRLA;
-		return pdPASS;
-	} else {
-		return pdFAIL;
-	}
+int8_t Serial::putByte(uint8_t data) {
+    uint8_t tempCTRLA;
+    signed char queueSendResult = xQueueSendToBack(TXqueue, &data, ticksToWait);
+    /* If we successfully loaded byte to queue */
+    if (queueSendResult == pdPASS) {
+        /* Enable DRE interrupt. */
+        tempCTRLA = module->CTRLA;
+        tempCTRLA = (tempCTRLA & ~USART_DREINTLVL_gm) | dreIntLevel;
+        module->CTRLA = tempCTRLA;
+        return pdPASS;
+    } else {
+        return pdFAIL;
+    }
 }
 
 /** @brief Get received data
@@ -198,9 +183,11 @@ int8_t Usart_putByte(Usart * usart, uint8_t data, int ticksToWait )
  *	@param xTicksToWait       Amount of RTOS ticks (1 ms default) to wait if there is data in queue.
  *  @return					  Success.
  */
-inline int8_t Usart_getByte(Usart * usart, char * receivedChar, int ticksToWait )
-{
-	return xQueueReceive(usart->RXqueue, receivedChar, ticksToWait);
+int8_t Serial::getByte(char * receivedChar, int ticks) {
+    return xQueueReceive(RXqueue, receivedChar, ticks);
+}
+int8_t Serial::getByte(char * receivedChar) {
+    return xQueueReceive(RXqueue, receivedChar, ticksToWait);
 }
 /** @brief Send string via Usart
  *
@@ -211,14 +198,14 @@ inline int8_t Usart_getByte(Usart * usart, char * receivedChar, int ticksToWait 
  *  @param string       The string to send.
  *  @param xTicksToWait       Amount of RTOS ticks (1 ms default) to wait if there is space in queue.
  */
-inline int8_t Usart_putString(Usart * usart, const char *string, int ticksToWait )
+int8_t Serial::putString(const char *string)
 {
-	//send the whole string. Note that if buffer is full, USART_TXBuffer_PutByte will do nothing
-	while (*string) {
-		int8_t putByteResult = Usart_putByte(usart, *string++, ticksToWait);
-		if (putByteResult == pdFAIL) return pdFAIL;
-	}
-	return pdPASS;
+    //send the whole string. Note that if buffer is full, USART_TXBuffer_PutByte will do nothing
+    while (*string) {
+        int8_t putByteResult = putByte(*string++);
+        if (putByteResult == pdFAIL) return pdFAIL;
+    }
+    return pdPASS;
 }
 /** @brief Send program memory string via Usart
  *
@@ -230,14 +217,14 @@ inline int8_t Usart_putString(Usart * usart, const char *string, int ticksToWait
  *  @param string       The string to send.
  *  @param xTicksToWait       Amount of RTOS ticks (1 ms default) to wait if there is space in queue.
  */
-inline int8_t Usart_putPgmString(Usart * usart, const char *progmem_s, int ticksToWait )
+int8_t Serial::putPgmString(const char *progmem_s)
 {
-	register char c;
-	while ( (c = pgm_read_byte(progmem_s++)) ) {
-		int8_t putByteResult =  Usart_putByte(usart, c, ticksToWait);
-		if (putByteResult == pdFAIL) return pdFAIL;
-	}
-	return pdPASS;
+    register char c;
+    while ( (c = pgm_read_byte(progmem_s++)) ) {
+        int8_t putByteResult =  putByte(c);
+        if (putByteResult == pdFAIL) return pdFAIL;
+    }
+    return pdPASS;
 }
 /** @brief Put data (5-8 bit character).
  *
@@ -249,61 +236,9 @@ inline int8_t Usart_putPgmString(Usart * usart, const char *progmem_s, int ticks
  *  @param radix	Integer basis - 10 for decimal, 16 for hex
  *  @param xTicksToWait
  */
-int8_t Usart_putInt(Usart * usart, int16_t Int,int16_t radix, int ticksToWait )
-{
-	char * str="big string for some itoa uses";
-	return Usart_putString(usart, itoa(Int,str,radix), ticksToWait );
-}
-
-/** @brief Put data
- *  Stores data byte in TX software buffer and enables DRE interrupt if there
- *  is free space in the TX software buffer.
- * @param usart
- * @param data The data to send
- * @return pdTRUE is success, pdFALSE if queue was full and ticksToWait elapsed
- */
-inline int8_t Usart_putByteDflt(Usart * usart, uint8_t data) {
-	return Usart_putByte(usart, data, usart->ticksToWait);
-}
-/** @brief Send string via Usart
- *  Stores data string in TX software buffer and enables DRE interrupt if there
- *  is free space in the TX software buffer.
- *  @param usart_struct The USART_struct_t struct instance.
- *  @param string       The string to send.
- */
-inline int8_t Usart_putStringDflt(Usart * usart, const char *string) {
-	return Usart_putString(usart, string, usart->ticksToWait);
-}
-/** @brief Send program memory string via Usart
- *  Stores data string in TX software buffer and enables DRE interrupt if there
- *  is free space in the TX software buffer.
- *  String is taken from the program memory.
- *  @param usart_struct The USART_struct_t struct instance.
- *  @param string       The string to send.
- */
-inline int8_t Usart_putPgmStringDflt(Usart * usart, const char *progmem_s) {
-	return Usart_putPgmString(usart, progmem_s, usart->ticksToWait);
-}
-/** @brief Put data (5-8 bit character).
- *  Stores data integer represented as string in TX software buffer and enables DRE interrupt if there
- *  is free space in the TX software buffer.
- *  @param usart Usart software abstraction structure
- *  @param Int       The integer to send.
- *  @param radix	Integer basis - 10 for decimal, 16 for hex
- */
-inline int8_t Usart_putIntDflt(Usart * usart, int16_t Int,int16_t radix) {
-	return Usart_putInt(usart, Int, radix, usart->ticksToWait);
-}
-/** @brief Get received data
- *
- *  Returns pdTRUE is data is available and puts byte into &receivedChar variable
- *
- *  @param usart_struct       The USART_struct_t struct instance.
- *	@param receivedChar       Pointer to char variable for to save result.
- *  @return					  Success.
- */
-inline int8_t Usart_getByteDflt(Usart * usart, char * receivedChar) {
-	return Usart_getByte(usart, receivedChar, usart->ticksToWait);
+int8_t Serial::putInt(int16_t Int,int16_t radix) {
+    char str[10];
+    return putString(itoa(Int,str,radix));
 }
 
 /**
@@ -313,19 +248,18 @@ inline int8_t Usart_getByteDflt(Usart * usart, char * receivedChar) {
  * @param Usart software abstraction structure
  * @return xHigherPriorityTaskWoken
  */
-inline signed char USART_RXComplete(Usart * usart)
-{
-	/* We have to check is we have woke higher priority task, because we post to
-	 * queue and high priority task might be blocked waiting for items appear on
-	 * this queue */
-	signed char xHigherPriorityTaskWoken = pdFALSE;
-	signed char cChar;
-	/* Get the character and post it on the queue of Rxed characters.
-	If the post causes a task to wake force a context switch as the woken task
-	may have a higher priority than the task we have interrupted. */
-	cChar = usart->module->DATA;
-	xQueueSendToBackFromISR( usart->RXqueue, &cChar, &xHigherPriorityTaskWoken );
-	return xHigherPriorityTaskWoken;
+signed char Serial::USART_RXComplete() {
+    /* We have to check is we have woke higher priority task, because we post to
+     * queue and high priority task might be blocked waiting for items appear on
+     * this queue */
+    signed char xHigherPriorityTaskWoken = pdFALSE;
+    signed char cChar;
+    /* Get the character and post it on the queue of Rxed characters.
+     If the post causes a task to wake force a context switch as the woken task
+     may have a higher priority than the task we have interrupted. */
+    cChar = module->DATA;
+    xQueueSendToBackFromISR( RXqueue, &cChar, &xHigherPriorityTaskWoken );
+    return xHigherPriorityTaskWoken;
 }
 
 /** @brief Data Register Empty Interrupt Service Routine.
@@ -336,21 +270,18 @@ inline signed char USART_RXComplete(Usart * usart)
  * @param Usart software abstraction structure
  * @return xHigherPriorityTaskWoken
  */
-inline signed char USART_DataRegEmpty(Usart * usart)
-{
-	signed char cChar, cTaskWoken;
-		if( xQueueReceiveFromISR( usart->TXqueue, &cChar, &cTaskWoken ) == pdTRUE )
-		{
-			/* Send the next character queued for Tx. */
-			usart->module->DATA = cChar;
-		}
-		else
-		{
-			/* Queue empty, nothing to send. */
-		    /* Disable DRE interrupts. */
-			uint8_t tempCTRLA = usart->module->CTRLA;
-			tempCTRLA = (tempCTRLA & ~USART_DREINTLVL_gm) | USART_DREINTLVL_OFF_gc;
-			usart->module->CTRLA = tempCTRLA;
-		}
-	return cTaskWoken;
+signed char Serial::USART_DataRegEmpty() {
+    signed char cChar, cTaskWoken;
+    if( xQueueReceiveFromISR( TXqueue, &cChar, &cTaskWoken ) == pdTRUE )
+    {
+        /* Send the next character queued for Tx. */
+        module->DATA = cChar;
+    } else {
+        /* Queue empty, nothing to send. */
+        /* Disable DRE interrupts. */
+        uint8_t tempCTRLA = module->CTRLA;
+        tempCTRLA = (tempCTRLA & ~USART_DREINTLVL_gm) | USART_DREINTLVL_OFF_gc;
+        module->CTRLA = tempCTRLA;
+    }
+    return cTaskWoken;
 }
