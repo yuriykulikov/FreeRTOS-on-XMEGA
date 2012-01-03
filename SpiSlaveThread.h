@@ -17,17 +17,20 @@
  *
  *****************************************************************************/
 
-
-#include "usart_driver_RTOS.h"
-#include "spi_driver.h"
+// Framework
+#include "Serial.h"
+#include "Spi.h"
+#include "Thread.h"
 
 /** Used to pass arguments to the task */
-typedef struct SpiSlaveTaskParametersDefinition
-{
-	/** Pointer to SpiSlave to use */
-	SpiSlave * spiSlave;
-	/** Pointer to USART buffer to use */
-	Usart * usartBuffer;
-} SpiSlaveTaskParameters;
-void startSpiSlaveTask(SpiSlave * slave, Usart * usartBuffer, char cPriority, xTaskHandle taskHandle);
+class SpiSlaveThread: public Thread {
+private:
+    /** Pointer to SpiSlave to use */
+    SpiSlave * spiSlave;
+    /** Pointer to USART buffer to use */
+    Serial * serial;
+public:
+    SpiSlaveThread(SpiSlave * spiSlave, Serial * serial, const char *name, unsigned short stackDepth, char priority);
+    void run();
+};
 

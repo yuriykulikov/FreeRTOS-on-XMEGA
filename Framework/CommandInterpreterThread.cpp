@@ -50,33 +50,49 @@
     http://www.OpenRTOS.com - Commercial support, development, porting,
     licensing and training services.
 */
+#define DEBUG
+//#undef DEBUG
 
-#ifndef COMMAND_INTERPRETER_H
-#define COMMAND_INTERPRETER_H
+extern "C" {
+/* Standard includes. */
+#include <string.h>
+#include <avr/pgmspace.h>
+#include "strings.h"
+}
+/* FreeRTOS includes. */
+#include "FreeRTOS.h"
+#include "task.h"
 
+/* Utils includes. */
+#include "CommandInterpreter.h"
+#include "CommandInterpreterThread.h"
+#include "Thread.h"
 #include "Serial.h"
-#include "Handler.h"
 
-typedef struct InputListItem {
-//public:
-    /* The command that causes pxCommandInterpreter to be executed.  For example "help".  Must be all lower case. */
-    char *pcCommand;
-    /* String that describes how to use the command.  Should start with the command itself, and end with "\r\n".
-     * For example "help: Returns a list of all the commands\r\n". */
-    char *pcHelpString;
-    Handler *handler;
-    char what;
-    InputListItem *pxNextEntry;
-} InputListItem;
+CommandInterpreterThread::CommandInterpreterThread(CommandInterpreter *interpreter, uint8_t commandInputLen, Serial *serial, const char *name, unsigned short stackDepth, char priority)
+:Thread(name, stackDepth, priority){
+    commandInputBuffer = (char *) pvPortMalloc( sizeof(char)*commandInputLen);
+    this->interpreter = interpreter;
+    this->serial = serial;
+}
 
-class CommandInterpreter {
-public:
-    CommandInterpreter();
-    void registerCommand(char *pgm_Cmd, char *pgm_CmdDesc, Handler *handler, char what);
-    void processCommand(char *pcCommandInput, Serial *serial);
-private:
-    InputListItem *list;
-};
+void CommandInterpreterThread::run() {
+    char receivedChar='#';
+    /* Task loops forever*/
+    for (;;) {
+        //Empty the string first
+        strcpy(commandInputBuffer,"");
+        // Wait until the first symbol unblocks the task
+        serial->getByte(&receivedChar,portMAX_DELAY);
+        strncat(commandInputBuffer,&receivedChar,1);
+        //Read string from queue, while data is available and put it into string
+        // This loop will be over, when there is either ; or \n is received, or queue is empty for 200 ms
+        while (serial->getByte(&receivedChar,200)) {
+            if (receivedChar == ';') break;
+            if (receivedChar == '\n') break;
+            strncat(commandInputBuffer,&receivedChar,1);
+        }
 
-#endif /* COMMAND_INTERPRETER_H */
-
+        interpreter->processCommand(commandInputBuffer, serial);
+    }
+}

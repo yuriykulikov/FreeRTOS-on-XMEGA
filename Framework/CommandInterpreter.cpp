@@ -50,70 +50,70 @@
     http://www.OpenRTOS.com - Commercial support, development, porting,
     licensing and training services.
 */
+#define DEBUG
+//#undef DEBUG
 
+extern "C" {
 /* Standard includes. */
 #include <string.h>
 #include <avr/pgmspace.h>
 #include "strings.h"
-
+}
 /* FreeRTOS includes. */
 #include "FreeRTOS.h"
 #include "task.h"
 
 /* Utils includes. */
 #include "CommandInterpreter.h"
-#include "handler.h"
-#include "usart_driver_RTOS.h"
+#include "Handler.h"
+#include "Serial.h"
 
-CommandLineInterpreter * CommandLineInterpreter_create() {
-	CommandLineInterpreter *commandLineInterpreter = (CommandLineInterpreter*) pvPortMalloc(sizeof(CommandLineInterpreter));
-	commandLineInterpreter->list =  (xCommandLineInputListItem*)pvPortMalloc(sizeof(xCommandLineInputListItem));
-	commandLineInterpreter->list->pxNext = NULL;
-	return commandLineInterpreter;
+CommandInterpreter::CommandInterpreter() {
+    list = (InputListItem*) pvPortMalloc(sizeof(InputListItem));
+    list->pxNextEntry = NULL;
 }
 
-/*-----------------------------------------------------------*/
-void CommandLineInterpreter_register(CommandLineInterpreter *interpreter, char *pgm_Cmd, char *pgm_CmdDesc, Handler *handler, char what) {
-	/* Create a new list item that will reference the command being registered. */
-	xCommandLineInputListItem *pxNewListItem = (xCommandLineInputListItem*) pvPortMalloc(sizeof(xCommandLineInputListItem));
-	// this will be the last element
-	pxNewListItem->pxNext = NULL;
-	// now populate the entry from input parameters
-	pxNewListItem->pcCommand = pgm_Cmd;
-	pxNewListItem->pcHelpString = pgm_CmdDesc;
-	pxNewListItem->handler = handler;
-	pxNewListItem->what = what;
-	xCommandLineInputListItem *entry = interpreter->list;
-	//find last element
-	while (entry->pxNext!=NULL) {
-		entry = entry->pxNext;
-	}
-	// Now store pointer to this new element to the last element
-	entry->pxNext = pxNewListItem;
+void CommandInterpreter::registerCommand(char *pgm_Cmd, char *pgm_CmdDesc, Handler *handler, char what) {
+    /* Create a new list item that will reference the command being registered. */
+    InputListItem *pxNewListItem = (InputListItem*) pvPortMalloc(sizeof(InputListItem));
+    // this will be the last element
+    pxNewListItem->pxNextEntry = NULL;
+    // now populate the entry from input parameters
+    pxNewListItem->pcCommand = pgm_Cmd;
+    pxNewListItem->pcHelpString = pgm_CmdDesc;
+    pxNewListItem->handler = handler;
+    pxNewListItem->what = what;
+    InputListItem *entry = list;
+    //find last element
+    while (entry->pxNextEntry!=NULL) {
+        entry = entry->pxNextEntry;
+    }
+    // Now store pointer to this new element to the last element
+    entry->pxNextEntry = pxNewListItem;
 }
-/*-----------------------------------------------------------*/
 
-void CommandLineInterpreter_process(CommandLineInterpreter *interpreter, char *pcCommandInput, Usart *usart) {
-	// Search for the command string in the list of registered commands starting with the second entry (first is emtpy)
-	for(xCommandLineInputListItem *entry = interpreter->list->pxNext; entry != NULL; entry = entry->pxNext ) {
-		if( strcmp_P( ( const char * ) pcCommandInput, ( const char * ) entry->pcCommand ) == 0 ) {
-			/* The command has been found, the loop can exit so the command
-			can be executed. */
-			Handler_sendMessageWithPtr(entry->handler, entry->what, 0, 0, usart);
-			return;
-		}
-	}
-	// No matches were found, maybe it was a help command?
-	if (strcmp_P( ( const char * ) pcCommandInput, ( const char * ) Strings_HelpCmd ) == 0) {
-		Usart_putPgmString(usart, Strings_HelpCmdDesc, 10);
-		// Search for the command string in the list of registered commands starting with the second entry (first is emtpy)
-		for(xCommandLineInputListItem *entry = interpreter->list->pxNext; entry != NULL; entry = entry->pxNext ) {
-			Usart_putPgmString(usart, entry->pcCommand, 10);
-			Usart_putPgmString(usart, Strings_colon, 10);
-			Usart_putPgmString(usart, Strings_space, 10);
-			Usart_putPgmString(usart, entry->pcHelpString, 10);
-		}
-	} else {
-		Usart_putPgmString(usart, Strings_InterpretorError, 10);
-	}
+void CommandInterpreter::processCommand(char *pcCommandInput, Serial *serial) {
+    // Search for the command string in the list of registered commands starting with the second entry (first is emtpy)
+    for(InputListItem *entry = list; entry != NULL; entry = entry->pxNextEntry ) {
+        if( strcmp_P( ( const char * ) pcCommandInput, ( const char * ) entry->pcCommand ) == 0 ) {
+        /* The command has been found, the loop can exit so the command
+           can be executed. */
+            entry->handler->sendMessage(entry->what, 0, 0, serial);
+            return;
+        }
+    }
+    // No matches were found, maybe it was a help command?
+    if (strcmp_P( ( const char * ) pcCommandInput, ( const char * ) Strings_HelpCmd ) == 0) {
+        serial->putPgmString(Strings_HelpCmdDesc);
+        // Search for the command string in the list of registered commands starting with the second entry (first is emtpy)
+        for(InputListItem *entry = list->pxNextEntry; entry != NULL; entry = entry->pxNextEntry ) {
+            serial->putPgmString(entry->pcCommand);
+            serial->putPgmString(Strings_colon);
+            serial->putPgmString(Strings_space);
+            serial->putPgmString(entry->pcHelpString);
+        }
+    } else {
+        serial->putPgmString(Strings_InterpretorError);
+    }
 }
+

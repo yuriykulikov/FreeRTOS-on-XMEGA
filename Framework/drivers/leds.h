@@ -9,18 +9,17 @@
 #define LEDGROUP_H_
 
 #include "avr_compiler.h"
-/* One single pin */
-typedef struct PinDefenition
-{
-	PORT_t * port;
-	uint8_t bitmask;
-} Pin;
 /* Group of leds */
-typedef struct LedGroupDefenition
-{
-	short amountOfLedsInGroup;
-	Pin * pins;
-} LedGroup;
+class LedGroup {
+private:
+    uint8_t amountOfLeds;
+    PORT_t ** ports;
+    uint8_t *bitmasks;
+public:
+    LedGroup(uint8_t maxAmountOfLeds);
+    void add(PORT_t * port, uint8_t bitmask, uint8_t isActiveLow);
+    void set(uint8_t bitmask);
+};
 
 /*
  * Assume that RGB led is a led group of 3 leds,
@@ -38,10 +37,5 @@ typedef enum {
     WHITE = 0x07,
 	NONE = 0x00,
 } Color_enum;
-
-
-LedGroup * Leds_init (short amountOfLedsInGroup);
-short Leds_new(LedGroup * ledGroup, PORT_t * port, uint8_t bitmask, short isActiveLow);
-void Leds_set(LedGroup * ledGroup , uint8_t bitmask);
 
 #endif /* LEDGROUP_H_ */
