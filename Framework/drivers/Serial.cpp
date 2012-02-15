@@ -70,9 +70,18 @@ Serial * usartC;
 Serial * usartD;
 Serial * usartE;
 
-ISR(USARTC0_RXC_vect){ if( usartC->USART_RXComplete() ) taskYIELD(); }
-ISR(USARTD0_RXC_vect){ if( usartD->USART_RXComplete() ) taskYIELD(); }
-ISR(USARTE0_RXC_vect){ if( usartE->USART_RXComplete() ) taskYIELD(); }
+ISR(USARTC0_RXC_vect){
+    //TODO declare ISR as naked, add context switch
+    uint8_t isHigherPriorityTaskWoken = usartC->USART_RXComplete();
+}
+ISR(USARTD0_RXC_vect){
+    //TODO declare ISR as naked, add context switch
+    uint8_t isHigherPriorityTaskWoken =  usartD->USART_RXComplete();
+}
+ISR(USARTE0_RXC_vect){
+    //TODO declare ISR as naked, add context switch
+    uint8_t isHigherPriorityTaskWoken =  usartE->USART_RXComplete();
+}
 
 ISR(USARTC0_DRE_vect){usartC->USART_DataRegEmpty();}
 ISR(USARTD0_DRE_vect){usartD->USART_DataRegEmpty();}
