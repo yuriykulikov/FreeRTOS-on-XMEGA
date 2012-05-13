@@ -60,104 +60,104 @@ extern volatile tskTCB * volatile pxCurrentTCB;
  * so we need not worry about reading/writing to the stack pointer. 
  */
 
-#define portSAVE_CONTEXT()                                   \
-    asm volatile (  "push    r0                     \n\t"    \
-                    "in      r0, __SREG__           \n\t"    \
-                    "cli                            \n\t"    \
-                    "push    r0                     \n\t"    \
-                    "push    r1                     \n\t"    \
-                    "clr    r1                      \n\t"    \
-                    "push    r2                     \n\t"    \
-                    "push    r3                     \n\t"    \
-                    "push    r4                     \n\t"    \
-                    "push    r5                     \n\t"    \
-                    "push    r6                     \n\t"    \
-                    "push    r7                     \n\t"    \
-                    "push    r8                     \n\t"    \
-                    "push    r9                     \n\t"    \
-                    "push    r10                    \n\t"    \
-                    "push    r11                    \n\t"    \
-                    "push    r12                    \n\t"    \
-                    "push    r13                    \n\t"    \
-                    "push    r14                    \n\t"    \
-                    "push    r15                    \n\t"    \
-                    "push    r16                    \n\t"    \
-                    "push    r17                    \n\t"    \
-                    "push    r18                    \n\t"    \
-                    "push    r19                    \n\t"    \
-                    "push    r20                    \n\t"    \
-                    "push    r21                    \n\t"    \
-                    "push    r22                    \n\t"    \
-                    "push    r23                    \n\t"    \
-                    "push    r24                    \n\t"    \
-                    "push    r25                    \n\t"    \
-                    "push    r26                    \n\t"    \
-                    "push    r27                    \n\t"    \
-                    "push    r28                    \n\t"    \
-                    "push    r29                    \n\t"    \
-                    "push    r30                    \n\t"    \
-                    "push    r31                    \n\t"    \
-                    "in      r16, 0x3b              \n\t"    \
-                    "push    r16                    \n\t"    \
-                    "in      r16, 0x3c              \n\t"    \
-                    "push    r16                    \n\t"    \
-                    "lds    r26, pxCurrentTCB       \n\t"    \
-                    "lds    r27, pxCurrentTCB + 1   \n\t"    \
-                    "in        r0, 0x3d             \n\t"    \
-                    "st        x+, r0               \n\t"    \
-                    "in        r0, 0x3e             \n\t"    \
-                    "st        x+, r0               \n\t"    \
+#define portSAVE_CONTEXT()                                  \
+    asm volatile (  "push   r0                      \n\t"   \
+                    "in     r0, __SREG__            \n\t"   \
+                    "cli                            \n\t"   \
+                    "push   r0                      \n\t"   \
+                    "in     r0, 0x3b                \n\t"   \
+                    "push   r0                      \n\t"   \
+                    "in     r0, 0x3c                \n\t"   \
+                    "push   r0                      \n\t"   \
+                    "push   r1                      \n\t"   \
+                    "clr    r1                      \n\t"   \
+                    "push   r2                      \n\t"   \
+                    "push   r3                      \n\t"   \
+                    "push   r4                      \n\t"   \
+                    "push   r5                      \n\t"   \
+                    "push   r6                      \n\t"   \
+                    "push   r7                      \n\t"   \
+                    "push   r8                      \n\t"   \
+                    "push   r9                      \n\t"   \
+                    "push   r10                     \n\t"   \
+                    "push   r11                     \n\t"   \
+                    "push   r12                     \n\t"   \
+                    "push   r13                     \n\t"   \
+                    "push   r14                     \n\t"   \
+                    "push   r15                     \n\t"   \
+                    "push   r16                     \n\t"   \
+                    "push   r17                     \n\t"   \
+                    "push   r18                     \n\t"   \
+                    "push   r19                     \n\t"   \
+                    "push   r20                     \n\t"   \
+                    "push   r21                     \n\t"   \
+                    "push   r22                     \n\t"   \
+                    "push   r23                     \n\t"   \
+                    "push   r24                     \n\t"   \
+                    "push   r25                     \n\t"   \
+                    "push   r26                     \n\t"   \
+                    "push   r27                     \n\t"   \
+                    "push   r28                     \n\t"   \
+                    "push   r29                     \n\t"   \
+                    "push   r30                     \n\t"   \
+                    "push   r31                     \n\t"   \
+                    "lds    r26, pxCurrentTCB       \n\t"   \
+                    "lds    r27, pxCurrentTCB + 1   \n\t"   \
+                    "in     r0, 0x3d                \n\t"   \
+                    "st     x+, r0                  \n\t"   \
+                    "in     r0, 0x3e                \n\t"   \
+                    "st     x+, r0                  \n\t"   \
                 );
 
 /* 
  * Opposite to portSAVE_CONTEXT().  Interrupts will have been disabled during
  * the context save so we can write to the stack pointer. 
  */
-#define portRESTORE_CONTEXT()                                \
-    asm volatile (  "lds    r26, pxCurrentTCB        \n\t"    \
-                    "lds    r27, pxCurrentTCB + 1    \n\t"    \
-                    "ld     r28, x+                  \n\t"    \
-                    "out    __SP_L__, r28            \n\t"    \
-                    "ld     r29, x+                  \n\t"    \
-                    "out    __SP_H__, r29            \n\t"    \
-                    "pop   r16                       \n\t"    \
-                    "out    0x3c, r16                \n\t"    \
-                    "pop    r16                      \n\t"    \
-                    "out    0x3b, r16                \n\t"    \
-                    "pop    r31                      \n\t"    \
-                    "pop    r30                      \n\t"    \
-                    "pop    r29                      \n\t"    \
-                    "pop    r28                      \n\t"    \
-                    "pop    r27                      \n\t"    \
-                    "pop    r26                      \n\t"    \
-                    "pop    r25                      \n\t"    \
-                    "pop    r24                      \n\t"    \
-                    "pop    r23                      \n\t"    \
-                    "pop    r22                      \n\t"    \
-                    "pop    r21                      \n\t"    \
-                    "pop    r20                      \n\t"    \
-                    "pop    r19                      \n\t"    \
-                    "pop    r18                      \n\t"    \
-                    "pop    r17                      \n\t"    \
-                    "pop    r16                      \n\t"    \
-                    "pop    r15                      \n\t"    \
-                    "pop    r14                      \n\t"    \
-                    "pop    r13                      \n\t"    \
-                    "pop    r12                      \n\t"    \
-                    "pop    r11                      \n\t"    \
-                    "pop    r10                      \n\t"    \
-                    "pop    r9                       \n\t"    \
-                    "pop    r8                       \n\t"    \
-                    "pop    r7                       \n\t"    \
-                    "pop    r6                       \n\t"    \
-                    "pop    r5                       \n\t"    \
-                    "pop    r4                       \n\t"    \
-                    "pop    r3                       \n\t"    \
-                    "pop    r2                       \n\t"    \
-                    "pop    r1                       \n\t"    \
-                    "pop    r0                       \n\t"    \
-                    "out    __SREG__, r0             \n\t"    \
-                    "pop    r0                       \n\t"    \
+#define portRESTORE_CONTEXT()                               \
+    asm volatile (  "lds    r26, pxCurrentTCB       \n\t"   \
+                    "lds    r27, pxCurrentTCB + 1   \n\t"   \
+                    "ld     r28, x+                 \n\t"   \
+                    "out    __SP_L__, r28           \n\t"   \
+                    "ld     r29, x+                 \n\t"   \
+                    "out    __SP_H__, r29           \n\t"   \
+                    "pop    r31                     \n\t"   \
+                    "pop    r30                     \n\t"   \
+                    "pop    r29                     \n\t"   \
+                    "pop    r28                     \n\t"   \
+                    "pop    r27                     \n\t"   \
+                    "pop    r26                     \n\t"   \
+                    "pop    r25                     \n\t"   \
+                    "pop    r24                     \n\t"   \
+                    "pop    r23                     \n\t"   \
+                    "pop    r22                     \n\t"   \
+                    "pop    r21                     \n\t"   \
+                    "pop    r20                     \n\t"   \
+                    "pop    r19                     \n\t"   \
+                    "pop    r18                     \n\t"   \
+                    "pop    r17                     \n\t"   \
+                    "pop    r16                     \n\t"   \
+                    "pop    r15                     \n\t"   \
+                    "pop    r14                     \n\t"   \
+                    "pop    r13                     \n\t"   \
+                    "pop    r12                     \n\t"   \
+                    "pop    r11                     \n\t"   \
+                    "pop    r10                     \n\t"   \
+                    "pop    r9                      \n\t"   \
+                    "pop    r8                      \n\t"   \
+                    "pop    r7                      \n\t"   \
+                    "pop    r6                      \n\t"   \
+                    "pop    r5                      \n\t"   \
+                    "pop    r4                      \n\t"   \
+                    "pop    r3                      \n\t"   \
+                    "pop    r2                      \n\t"   \
+                    "pop    r1                      \n\t"   \
+                    "pop    r0                      \n\t"   \
+                    "out    0x3c, r0                \n\t"   \
+                    "pop    r0                      \n\t"   \
+                    "out    0x3b, r0                \n\t"   \
+                    "pop    r0                      \n\t"   \
+                    "out    __SREG__, r0            \n\t"   \
+                    "pop    r0                      \n\t"   \
                 );
 
 /*-----------------------------------------------------------*/
@@ -170,138 +170,158 @@ static void prvSetupTimerInterrupt(void);
 
 /* 
  * See header file for description. 
- */portSTACK_TYPE *pxPortInitialiseStack(portSTACK_TYPE *pxTopOfStack,
-        pdTASK_CODE pxCode, void *pvParameters) {
-    /*The addresses are 16 or 24 bit depending on the xmega memory, so use 32 bit variable but put only a
-     * part to stack.*/
-    uint16_t usAddress;
+ */
+portSTACK_TYPE *pxPortInitialiseStack( portSTACK_TYPE *pxTopOfStack, pdTASK_CODE pxCode, void *pvParameters )
+{
+#ifdef __AVR_3_BYTE_PC__
+//unsigned portLONG  ulAddress;
+#endif
+unsigned portSHORT usAddress;
+
     /* Place a few bytes of known values on the bottom of the stack.
-     This is just useful for debugging. */
+    This is just useful for debugging. */
+
     *pxTopOfStack = 0x11;
     pxTopOfStack--;
     *pxTopOfStack = 0x22;
     pxTopOfStack--;
     *pxTopOfStack = 0x33;
     pxTopOfStack--;
+
     /* Simulate how the stack would look after a call to vPortYield() generated by
-     the compiler. */
+    the compiler. */
+
     /*lint -e950 -e611 -e923 Lint doesn't like this much - but nothing I can do about it. */
+
     /* The start of the task code will be popped off the stack last, so place
-     it on first. */
-    /*    Original code
-     * For 16-bit program counter (128K program memory or less)
-     usAddress = ( unsigned short ) pxCode;
-     *pxTopOfStack = ( portSTACK_TYPE ) ( usAddress & ( unsigned short ) 0x00ff );
-     pxTopOfStack--;
-     usAddress >>= 8;
-     *pxTopOfStack = ( portSTACK_TYPE ) ( usAddress & ( unsigned short ) 0x00ff );
-     pxTopOfStack--;*/
-    /* end of original code block */
+    it on first. */
 
-    /* The way it should be done for xmega with probably  more than 128K program memory.
-     * Warning is OK here - type incompatibility does not matter - usAddress is only
-     * used as temporary storage */
-    usAddress = (uint16_t)pxCode;
-
-    *pxTopOfStack = (portSTACK_TYPE ) (usAddress & (uint16_t) 0x00ff);
+#ifdef __AVR_3_BYTE_PC__
+    /* The AVR ATmega2560/ATmega2561 have 256KBytes of program memory and a 17-bit
+     * program counter.  When a code address is stored on the stack, it takes 3 bytes
+     * instead of 2 for the other ATmega* chips.
+     *
+     * Store 0 as the top byte since we force all task routines to the bottom 128K
+     * of flash.
+     *
+     * In order to do this properly, we would need to get a full 3-byte poinbter to
+     * pxCode.  That requires a change to GCC.  Not likely to happen any time soon.
+     */
+    usAddress = ( unsigned portSHORT ) pxCode;
+    *pxTopOfStack = ( portSTACK_TYPE ) ( usAddress & ( unsigned portSHORT ) 0x00ff );
     pxTopOfStack--;
+
     usAddress >>= 8;
-
-    *pxTopOfStack = (portSTACK_TYPE ) (usAddress & (uint16_t) 0x00ff);
+    *pxTopOfStack = ( portSTACK_TYPE ) ( usAddress & ( unsigned portSHORT ) 0x00ff );
     pxTopOfStack--;
 
+//  usAddress >>= 8;
+//  *pxTopOfStack = ( portSTACK_TYPE ) ( usAddress & ( unsigned portSHORT ) 0x00ff );
+    *pxTopOfStack = 0;
+    pxTopOfStack--;
+#else
+    usAddress = ( unsigned portSHORT ) pxCode;
+    *pxTopOfStack = ( portSTACK_TYPE ) ( usAddress & ( unsigned portSHORT ) 0x00ff );
+    pxTopOfStack--;
 
-#if defined(__AVR_3_BYTE_PC__) && __AVR_3_BYTE_PC__
-    *pxTopOfStack = (portSTACK_TYPE ) 0;
+    usAddress >>= 8;
+    *pxTopOfStack = ( portSTACK_TYPE ) ( usAddress & ( unsigned portSHORT ) 0x00ff );
     pxTopOfStack--;
 #endif
 
     /* Next simulate the stack as if after a call to portSAVE_CONTEXT().
-     portSAVE_CONTEXT places the flags on the stack immediately after r0
-     to ensure the interrupts get disabled as soon as possible, and so ensuring
-     the stack use is minimal should a context switch interrupt occur. */
-    *pxTopOfStack = (portSTACK_TYPE ) 0x00; /* R0 */
+     * portSAVE_CONTEXT places the flags on the stack immediately after r0
+     * to ensure the interrupts get disabled as soon as possible, and so ensuring
+     * the stack use is minimal should a context switch interrupt occur.
+     */
+    *pxTopOfStack = ( portSTACK_TYPE ) 0x00;    /* R0 */
     pxTopOfStack--;
     *pxTopOfStack = portFLAGS_INT_ENABLED;
     pxTopOfStack--;
 
+#if defined(EIND) && defined(RAMPZ)
+
+    /* If we have an ATmega256x, we are also saving the RAMPZ and EIND registers.
+     * We should default those to 0.
+     */
+    *pxTopOfStack = ( portSTACK_TYPE ) 0x00;    /* EIND */
+    pxTopOfStack--;
+    *pxTopOfStack = ( portSTACK_TYPE ) 0x00;    /* RAMPZ */
+    pxTopOfStack--;
+
+#endif
+
+
     /* Now the remaining registers.   The compiler expects R1 to be 0. */
-    *pxTopOfStack = (portSTACK_TYPE ) 0x00; /* R1 */
+    *pxTopOfStack = ( portSTACK_TYPE ) 0x00;    /* R1 */
     pxTopOfStack--;
-    *pxTopOfStack = (portSTACK_TYPE ) 0x02; /* R2 */
+    *pxTopOfStack = ( portSTACK_TYPE ) 0x02;    /* R2 */
     pxTopOfStack--;
-    *pxTopOfStack = (portSTACK_TYPE ) 0x03; /* R3 */
+    *pxTopOfStack = ( portSTACK_TYPE ) 0x03;    /* R3 */
     pxTopOfStack--;
-    *pxTopOfStack = (portSTACK_TYPE ) 0x04; /* R4 */
+    *pxTopOfStack = ( portSTACK_TYPE ) 0x04;    /* R4 */
     pxTopOfStack--;
-    *pxTopOfStack = (portSTACK_TYPE ) 0x05; /* R5 */
+    *pxTopOfStack = ( portSTACK_TYPE ) 0x05;    /* R5 */
     pxTopOfStack--;
-    *pxTopOfStack = (portSTACK_TYPE ) 0x06; /* R6 */
+    *pxTopOfStack = ( portSTACK_TYPE ) 0x06;    /* R6 */
     pxTopOfStack--;
-    *pxTopOfStack = (portSTACK_TYPE ) 0x07; /* R7 */
+    *pxTopOfStack = ( portSTACK_TYPE ) 0x07;    /* R7 */
     pxTopOfStack--;
-    *pxTopOfStack = (portSTACK_TYPE ) 0x08; /* R8 */
+    *pxTopOfStack = ( portSTACK_TYPE ) 0x08;    /* R8 */
     pxTopOfStack--;
-    *pxTopOfStack = (portSTACK_TYPE ) 0x09; /* R9 */
+    *pxTopOfStack = ( portSTACK_TYPE ) 0x09;    /* R9 */
     pxTopOfStack--;
-    *pxTopOfStack = (portSTACK_TYPE ) 0x10; /* R10 */
+    *pxTopOfStack = ( portSTACK_TYPE ) 0x10;    /* R10 */
     pxTopOfStack--;
-    *pxTopOfStack = (portSTACK_TYPE ) 0x11; /* R11 */
+    *pxTopOfStack = ( portSTACK_TYPE ) 0x11;    /* R11 */
     pxTopOfStack--;
-    *pxTopOfStack = (portSTACK_TYPE ) 0x12; /* R12 */
+    *pxTopOfStack = ( portSTACK_TYPE ) 0x12;    /* R12 */
     pxTopOfStack--;
-    *pxTopOfStack = (portSTACK_TYPE ) 0x13; /* R13 */
+    *pxTopOfStack = ( portSTACK_TYPE ) 0x13;    /* R13 */
     pxTopOfStack--;
-    *pxTopOfStack = (portSTACK_TYPE ) 0x14; /* R14 */
+    *pxTopOfStack = ( portSTACK_TYPE ) 0x14;    /* R14 */
     pxTopOfStack--;
-    *pxTopOfStack = (portSTACK_TYPE ) 0x15; /* R15 */
+    *pxTopOfStack = ( portSTACK_TYPE ) 0x15;    /* R15 */
     pxTopOfStack--;
-    *pxTopOfStack = (portSTACK_TYPE ) 0x16; /* R16 */
+    *pxTopOfStack = ( portSTACK_TYPE ) 0x16;    /* R16 */
     pxTopOfStack--;
-    *pxTopOfStack = (portSTACK_TYPE ) 0x17; /* R17 */
+    *pxTopOfStack = ( portSTACK_TYPE ) 0x17;    /* R17 */
     pxTopOfStack--;
-    *pxTopOfStack = (portSTACK_TYPE ) 0x18; /* R18 */
+    *pxTopOfStack = ( portSTACK_TYPE ) 0x18;    /* R18 */
     pxTopOfStack--;
-    *pxTopOfStack = (portSTACK_TYPE ) 0x19; /* R19 */
+    *pxTopOfStack = ( portSTACK_TYPE ) 0x19;    /* R19 */
     pxTopOfStack--;
-    *pxTopOfStack = (portSTACK_TYPE ) 0x20; /* R20 */
+    *pxTopOfStack = ( portSTACK_TYPE ) 0x20;    /* R20 */
     pxTopOfStack--;
-    *pxTopOfStack = (portSTACK_TYPE ) 0x21; /* R21 */
+    *pxTopOfStack = ( portSTACK_TYPE ) 0x21;    /* R21 */
     pxTopOfStack--;
-    *pxTopOfStack = (portSTACK_TYPE ) 0x22; /* R22 */
+    *pxTopOfStack = ( portSTACK_TYPE ) 0x22;    /* R22 */
     pxTopOfStack--;
-    *pxTopOfStack = (portSTACK_TYPE ) 0x23; /* R23 */
+    *pxTopOfStack = ( portSTACK_TYPE ) 0x23;    /* R23 */
     pxTopOfStack--;
 
     /* Place the parameter on the stack in the expected location. */
-    usAddress = (unsigned short) pvParameters;
-    *pxTopOfStack = (portSTACK_TYPE ) (usAddress & (unsigned short) 0x00ff);
+    usAddress = ( unsigned portSHORT ) pvParameters;
+    *pxTopOfStack = ( portSTACK_TYPE ) ( usAddress & ( unsigned portSHORT ) 0x00ff );
     pxTopOfStack--;
 
     usAddress >>= 8;
-    *pxTopOfStack = (portSTACK_TYPE ) (usAddress & (unsigned short) 0x00ff);
+    *pxTopOfStack = ( portSTACK_TYPE ) ( usAddress & ( unsigned portSHORT ) 0x00ff );
     pxTopOfStack--;
 
-    *pxTopOfStack = (portSTACK_TYPE ) 0x26; /* R26 X */
+    *pxTopOfStack = ( portSTACK_TYPE ) 0x26;    /* R26 X */
     pxTopOfStack--;
-    *pxTopOfStack = (portSTACK_TYPE ) 0x27; /* R27 */
+    *pxTopOfStack = ( portSTACK_TYPE ) 0x27;    /* R27 */
     pxTopOfStack--;
-    *pxTopOfStack = (portSTACK_TYPE ) 0x28; /* R28 Y */
+    *pxTopOfStack = ( portSTACK_TYPE ) 0x28;    /* R28 Y */
     pxTopOfStack--;
-    *pxTopOfStack = (portSTACK_TYPE ) 0x29; /* R29 */
+    *pxTopOfStack = ( portSTACK_TYPE ) 0x29;    /* R29 */
     pxTopOfStack--;
-    *pxTopOfStack = (portSTACK_TYPE ) 0x30; /* R30 Z */
+    *pxTopOfStack = ( portSTACK_TYPE ) 0x30;    /* R30 Z */
     pxTopOfStack--;
-    *pxTopOfStack = (portSTACK_TYPE ) 0x31; /* R31 */
+    *pxTopOfStack = ( portSTACK_TYPE ) 0x31;    /* R31 */
     pxTopOfStack--;
-    /* these registers are also part of execution context
-     * Corresponing registars are saved and restored in saveCONTEXT and restoreCONTEXT
-     * See datasheet for explanation
-     */
-    *pxTopOfStack = ( portSTACK_TYPE ) 0x00;    /* 3b RAMPZ */
-    pxTopOfStack--;
-    *pxTopOfStack = ( portSTACK_TYPE ) 0x00;    /* 3c EIND */
-    pxTopOfStack--;
+
     /*lint +e950 +e611 +e923 */
 
     return pxTopOfStack;
