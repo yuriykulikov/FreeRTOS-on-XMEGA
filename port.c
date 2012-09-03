@@ -28,43 +28,6 @@
 #include "TC_driver.h"
 #include "pmic_driver.h"
 
-/* define this as 1 if target device more than 128K of program memory.
- * define as 0 if 128K or less. Devices with more memory have 24-bit program
- * counter, while devices with 128K or less have only 16-bit program counter.
- */
-#if defined (__AVR_ATxmega16A4__)
-#define PROGRAMCOUNTER_24BIT 0
-#elif defined (__AVR_ATxmega16D4__)
-#define PROGRAMCOUNTER_24BIT 0
-#elif defined (__AVR_ATxmega32A4__)
-#define PROGRAMCOUNTER_24BIT 0
-#elif defined (__AVR_ATxmega32D4__)
-#define PROGRAMCOUNTER_24BIT 0
-#elif defined (__AVR_ATxmega64A1__)
-#define PROGRAMCOUNTER_24BIT 0
-#elif defined (__AVR_ATxmega64A3__)
-#define PROGRAMCOUNTER_24BIT 0
-#elif defined (__AVR_ATxmega64D3__)
-#define PROGRAMCOUNTER_24BIT 0
-#elif defined (__AVR_ATxmega128A1__)
-#define PROGRAMCOUNTER_24BIT 1
-#elif defined (__AVR_ATxmega128A3__)
-#define PROGRAMCOUNTER_24BIT 1
-#elif defined (__AVR_ATxmega128D3__)
-#define PROGRAMCOUNTER_24BIT 1
-#elif defined (__AVR_ATxmega192A3__)
-#define PROGRAMCOUNTER_24BIT 1
-#elif defined (__AVR_ATxmega192D3__)
-#define PROGRAMCOUNTER_24BIT 1
-#elif defined (__AVR_ATxmega256A3__)
-#define PROGRAMCOUNTER_24BIT 1
-#elif defined (__AVR_ATxmega256A3B__)
-#define PROGRAMCOUNTER_24BIT 1
-#elif defined (__AVR_ATxmega256D3__)
-#else
-#error "device name should be defined in the project settings"
-#endif
-
 /*-----------------------------------------------------------
  * Implementation of functions defined in portable.h for the AVR XMEGA port.
  *----------------------------------------------------------*/
@@ -134,16 +97,6 @@ extern volatile tskTCB * volatile pxCurrentTCB;
                     "push    r29                    \n\t"    \
                     "push    r30                    \n\t"    \
                     "push    r31                    \n\t"    \
-                    ";in    r16, 0x38               \n\t"    \
-                    ";push    r16                   \n\t"    \
-                    ";in    r16, 0x39               \n\t"    \
-                    ";push    r16                   \n\t"    \
-                    ";in    r16, 0x3a               \n\t"    \
-                    ";push    r16                   \n\t"    \
-                    ";in    r16, 0x3b               \n\t"    \
-                    ";push    r16                   \n\t"    \
-                    ";in    r16, 0x3c               \n\t"    \
-                    ";push    r16                   \n\t"    \
                     "lds    r26, pxCurrentTCB       \n\t"    \
                     "lds    r27, pxCurrentTCB + 1   \n\t"    \
                     "in        r0, 0x3d             \n\t"    \
@@ -156,7 +109,6 @@ extern volatile tskTCB * volatile pxCurrentTCB;
  * Opposite to portSAVE_CONTEXT().  Interrupts will have been disabled during
  * the context save so we can write to the stack pointer. 
  */
-
 #define portRESTORE_CONTEXT()                                \
     asm volatile (  "lds    r26, pxCurrentTCB        \n\t"    \
                     "lds    r27, pxCurrentTCB + 1    \n\t"    \
@@ -164,16 +116,6 @@ extern volatile tskTCB * volatile pxCurrentTCB;
                     "out    __SP_L__, r28            \n\t"    \
                     "ld     r29, x+                  \n\t"    \
                     "out    __SP_H__, r29            \n\t"    \
-                    ";pop   r16                       \n\t"    \
-                    ";out    0x3c, r16                \n\t"    \
-                    ";pop    r16                      \n\t"    \
-                    ";out    0x3b, r16                \n\t"    \
-                    ";pop    r16                      \n\t"    \
-                    ";out    0x3a, r16                \n\t"    \
-                    ";pop    r16                      \n\t"    \
-                    ";out    0x39, r16                \n\t"    \
-                    ";pop    r16                      \n\t"    \
-                    ";out    0x38, r16                \n\t"    \
                     "pop    r31                      \n\t"    \
                     "pop    r30                      \n\t"    \
                     "pop    r29                      \n\t"    \
@@ -224,7 +166,7 @@ static void prvSetupTimerInterrupt(void);
         pdTASK_CODE pxCode, void *pvParameters) {
     /*The addresses are 16 or 24 bit depending on the xmega memory, so use 32 bit variable but put only a
      * part to stack.*/
-    uint32_t usAddress;
+    uint16_t usAddress;
     /* Place a few bytes of known values on the bottom of the stack.
      This is just useful for debugging. */
     *pxTopOfStack = 0x11;
@@ -251,23 +193,20 @@ static void prvSetupTimerInterrupt(void);
     /* The way it should be done for xmega with probably  more than 128K program memory.
      * Warning is OK here - type incompatibility does not matter - usAddress is only
      * used as temporary storage */
-    usAddress = (uint32_t) pxCode;
+    usAddress = (uint16_t)pxCode;
 
-    *pxTopOfStack = (portSTACK_TYPE ) (usAddress & (uint32_t) 0x000000ff);
+    *pxTopOfStack = (portSTACK_TYPE ) (usAddress & (uint16_t) 0x00ff);
     pxTopOfStack--;
     usAddress >>= 8;
 
-    /* The only difference between ports for different xmegas is size of
-     * program counter. 16-bit for devices with 128K of program memory or less.
-     * 24-bit for other xmegas. */
-#if PROGRAMCOUNTER_24BIT == 1
-    *pxTopOfStack = (portSTACK_TYPE ) (usAddress & (uint32_t) 0x000000ff);
+    *pxTopOfStack = (portSTACK_TYPE ) (usAddress & (uint16_t) 0x00ff);
     pxTopOfStack--;
-    usAddress >>= 8;
+
+
+#if defined(__AVR_3_BYTE_PC__) && __AVR_3_BYTE_PC__
+    *pxTopOfStack = (portSTACK_TYPE ) 0;
+    pxTopOfStack--;
 #endif
-
-    *pxTopOfStack = (portSTACK_TYPE ) (usAddress & (uint32_t) 0x000000ff);
-    pxTopOfStack--;
 
     /* Next simulate the stack as if after a call to portSAVE_CONTEXT().
      portSAVE_CONTEXT places the flags on the stack immediately after r0
@@ -347,31 +286,17 @@ static void prvSetupTimerInterrupt(void);
     pxTopOfStack--;
     *pxTopOfStack = (portSTACK_TYPE ) 0x31; /* R31 */
     pxTopOfStack--;
-    /* these registers are also part of execution context
-     * Corresponing registars are saved and restored in saveCONTEXT and restoreCONTEXT
-     * TODO  See datasheet for explanation
-     */
-    //*pxTopOfStack = ( portSTACK_TYPE ) 0x38;    /* 38 RAMPD */
-    //pxTopOfStack--;
-    //*pxTopOfStack = ( portSTACK_TYPE ) 0x39;    /* 39 RAMPX */
-    //pxTopOfStack--;
-    //*pxTopOfStack = ( portSTACK_TYPE ) 0x3a;    /* 3a RAMPY */
-    //pxTopOfStack--;
-    //*pxTopOfStack = ( portSTACK_TYPE ) 0x3b;    /* 3b RAMPZ */
-    //pxTopOfStack--;
-    //*pxTopOfStack = ( portSTACK_TYPE ) 0x3c;    /* 3c EIND */
-    //pxTopOfStack--;
-    /*lint +e950 +e611 +e923 */
 
     return pxTopOfStack;
 }
-/*-----------------------------------------------------------*/portBASE_TYPE xPortStartScheduler(
-        void) {
+/*-----------------------------------------------------------*/
+portBASE_TYPE xPortStartScheduler(void) {
 
     /* Setup the hardware to generate the tick. */
     prvSetupTimerInterrupt();
 
-    /* Restore the context of the first task that is going to run. */portRESTORE_CONTEXT();
+    /* Restore the context of the first task that is going to run. */
+    portRESTORE_CONTEXT();
 
     /* Simulate a function call end as generated by the compiler.  We will now
      jump to the start of the task the context of which we have just restored. */
