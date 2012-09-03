@@ -402,19 +402,7 @@ void vPortYield(void) {
 }
 /*-----------------------------------------------------------*/
 
-/*
- * Context switch function used by the tick.  This must be identical to 
- * vPortYield() from the call to vTaskSwitchContext() onwards.  The only
- * difference from vPortYield() is the tick count is incremented as the
- * call comes from the tick ISR.
- */
-void vPortYieldFromTick(void) __attribute__ ( ( naked, always_inline ) );
-void vPortYieldFromTick(void) {
-    portSAVE_CONTEXT();
-    vTaskIncrementTick();
-    vTaskSwitchContext();
-    portRESTORE_CONTEXT();
-}
+
 /*-----------------------------------------------------------*/
 
 /*
@@ -444,7 +432,16 @@ static void prvSetupTimerInterrupt(void) {
  */
 
 ISR (TCC0_OVF_vect, ISR_NAKED) {
-    vPortYieldFromTick();
+    /*
+     * Context switch function used by the tick.  This must be identical to
+     * vPortYield() from the call to vTaskSwitchContext() onwards.  The only
+     * difference from vPortYield() is the tick count is incremented as the
+     * call comes from the tick ISR.
+     */
+    portSAVE_CONTEXT();
+    vTaskIncrementTick();
+    vTaskSwitchContext();
+    portRESTORE_CONTEXT();
     asm volatile ( "reti" );
 }
 
